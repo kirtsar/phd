@@ -13,7 +13,6 @@ function Map(x) where T
 	return Map(v)
 end
 
-#=
 function Map(f :: Family{T}) where T
 	n = length(f)
 	x = zeros(Int, 2^n)
@@ -22,7 +21,7 @@ function Map(f :: Family{T}) where T
 	end
 	return Map(x)
 end
-=#
+
 
 function (m :: Map)(x)
 	return m.img[x]
@@ -70,4 +69,15 @@ end
 function comm(m1 :: Map, m2 :: Map)
 	return m1 * m2 * inv(m1) * inv(m2)
 end
-	
+
+
+function mult_group(ls :: LatinSquare)
+	rowperm = Dict{Int, Map{Int}}()
+	colperm = Dict{Int, Map{Int}}()
+	n = length(ls)
+	for i in 1 : n
+		rowperm[i - 1] = Map(ls.sq[i, :])
+		colperm[i - 1] = Map(ls.sq[:, i])
+	end
+	return rowperm, colperm
+end

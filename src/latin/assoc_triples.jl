@@ -1,8 +1,68 @@
 # construct all latin squares of given size
 # find the number of associative triples
+import Base.getindex
+import Base.show
+
+
+struct AssocAnalyzer{T}
+    pairings :: Vector{T}
+    num_assoc :: Vector{Int}
+end
+
+
+function show(io :: IO, aa :: AssocAnalyzer)
+    println("AssocAnalyzer of size $(length(aa.num_assoc))")
+end
+
+
+function assoc_init(n :: Int)
+    pairs = generate_all_pairings(n)
+    num_assoc = zeros(Int, length(pairs))
+    return AssocAnalyzer(pairs, num_assoc)
+end
+
+
+function assoc_init(f :: Family)
+    m = length(fam)
+    return assoc_init(m)
+end
+
+
+function (a :: AssocAnalyzer)(f :: Family)
+    n = 2^length(fam)
+    table = zeros(Int, (n, n))
+    ls = LatinSquare(table)
+    for (i, p) in enumerate(a.pairings)
+        a.num_assoc[i] = assoc!(ls, fam, p)
+    end
+end
+
+
+function getindex(a :: AssocAnalyzer, i :: Int)
+    return (a.pairings[i], a.num_assoc[i])
+end
+
+
+function getindex(a :: AssocAnalyzer, I) 
+    return [a[i] for i in I]
+end
+
+
+function minimal(a :: AssocAnalyzer)
+    i = argmin(a.num_assoc)
+    return a[i]
+end
+
+
+function minimal(a :: AssocAnalyzer, i :: Int)
+    inds = sortperm(a.num_assoc)[1 : i]
+    return a[inds]
+end
+
 
 
 # find number of associative triples
+# in latin square
 function assoc(ls :: LatinSquare)
     m = length(ls)
     assocNum = 0
@@ -18,6 +78,7 @@ function assoc(ls :: LatinSquare)
     end
     return assocNum
 end
+
 
 # return associative triples
 function triples(ls :: LatinSquare)
@@ -37,6 +98,7 @@ function triples(ls :: LatinSquare)
     return assoc_triples
 end
 
+
 # return triples for family and pairings
 function triples(fam :: Family{T}, pi :: Pairing{T}) where T
     m = length(fam)
@@ -48,31 +110,22 @@ end
 
 
 function assoc(fam :: Family)
-    m = length(fam)
-    pairs = generate_all_pairings(m)
-    n = 2^m - 1
-    table = zeros(Int, (n + 1, n + 1))
-    ls = LatinSquare(table)
-    total_assoc = zeros(Int, length(pairs))
-    assoc!(ls, fam, pairs, total_assoc)
-    return total_assoc
+    aa = assoc_init(fam)
+    aa(fam)
+    return aa
 end
 
 
 function assoc!(
         ls :: LatinSquare, 
         fam :: Family, 
-        pairs :: Vector{Pairing}, 
-        total_assoc :: Vector{Int})
-    for (i, p) in enumerate(pairs)
-        # ls = LatinSquare(fam, p)
-        latin!(ls, fam, p)
-        total_assoc[i] = assoc(ls)
-    end 
+        p :: Pairing)
+    latin!(ls, fam, p)
+    total_assoc = assoc(ls)
     return total_assoc
 end
 
-
+#=
 function total_assoc(fams :: Vector{Family{T}}) where T
     min_assoc = zeros(Int, length(fams))
     mean_assoc = zeros(length(fams))
@@ -94,7 +147,6 @@ function total_assoc(fams :: Vector{Family{T}}) where T
     #close(fout)
     return min_assoc, mean_assoc
 end  
-
 
 
 function save_assoc(trans, tmin, tmean; filename = "assoc4.clf")
@@ -156,6 +208,7 @@ function load_assoc(filename)
     return trans, tmin, tmean
 end
 
+=#
 
 #=
 function resave_assoc(filename)
