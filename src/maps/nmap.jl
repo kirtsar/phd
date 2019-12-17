@@ -1,6 +1,8 @@
 import Base.*
 import Base.inv
 import Base.show
+import Base.getindex
+import Base.setindex!
 
 using OffsetArrays
 
@@ -21,33 +23,47 @@ function NMap(lens...)
 	return NMap(Int, lens...)
 end
 
+function ftype(nm :: NMap)
+	return size(nm.img)
+end
+
+
+function Base.getindex(nm :: NMap, inds...)
+	getindex(nm.img, inds...)
+end
+
+
+function Base.setindex!(nm :: NMap, val, inds...)
+	setindex!(nm.img, val, inds...)
+end
+
 
 function Base.show(io :: IO, nm :: NMap)
-	n = size(nm.img)
-	if all(n .== n[1])
-		println("Map of the type Z_$(n[1])^$(length(n))")
-	else
-		#Z_n1 x Z_n2 x ... Z_nk
-		maptype = ""
-		for ni in n
-			maptype *= "Z_$(ni) × "
-		end
-		println("Map of the type $(maptype[1 : end - 3])")
-	end
+	ft = ftype(nm)
+	G = Grp(ft)
+	maptype = repr(G)
+	print(io, "Map $maptype -> Z")
 end
 
 
-function (nm :: NMap)(inds :: NTuple)
-	return nm.img[inds...]
+function (nm :: NMap)(inds...)
+	return nm[inds...]
 end
 
 
+function (nm :: NMap)(x :: Tuple)
+	return nm(x...)
+end
+
+
+# represent map as table
+# (i1, i2, ... , ik) -> f(i1, .., ik)
 function view(nm :: NMap)
-	n = size(nm.img)
-	indices = CartesianIndices(n) .- CartesianIndex(1, 1, 1)
-	for i in indices
-		xi = Tuple(i)
-		println(xi, " : ", nm(xi))
+	ft = ftype(nm)
+	G = Grp(ft)
+	xs = elements(G)
+	for x in xs
+		println(x, " -> ", nm(x))
 	end
 end
 

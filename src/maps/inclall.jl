@@ -1,0 +1,5 @@
+include("finite_group.jl")
+include("nmap.jl")
+include("mappings.jl")
+include("nfamily.jl")
+include("qgroup.jl")

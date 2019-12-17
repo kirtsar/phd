@@ -1,7 +1,7 @@
 import Base.length
 
 
-struct LatinSquare
+struct LatinSquare{Int}
     sq :: Matrix{Int}
 end
 

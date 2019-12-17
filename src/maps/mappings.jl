@@ -3,17 +3,24 @@ import Base.inv
 
 using OffsetArrays
 
+
+# mapping Zk -> Zk
+# represent as array
+# f(k) = img[k]
 struct Map{T}
 	img :: OffsetVector{T}
+	k :: Int
 end
 
 
-function Map(x) where T
+# mapping of the form {0, .. k - 1} -> {0, .., k - 1}
+# NO  CHECKS
+function Map(x :: AbstractArray)
 	v = OffsetVector(x, 0 : length(x) - 1)
-	return Map(v)
+	return Map(v, length(x))
 end
 
-function Map(f :: Family{T}) where T
+function Map(f :: Family)
 	n = length(f)
 	x = zeros(Int, 2^n)
 	for i in 1 : 2^n
@@ -28,13 +35,13 @@ function (m :: Map)(x)
 end
 
 
-function len(m :: Map{T}) where T
-	return length(m.img)
+function ftype(m :: Map)
+	return m.k
 end
 
 
 function *(m1 :: Map{T}, m2 :: Map{T}) where T
-	n = len(m1)
+	n = ftype(m1)
 	x = zeros(T, n)
 	for i in 0 : n-1
 		# i -> m2(i) -> m1(m2(i))
@@ -44,11 +51,11 @@ function *(m1 :: Map{T}, m2 :: Map{T}) where T
 end
 
 
-function inv(m :: Map{T}) where T
-	n = length(m.img)
+function inv(m :: Map)
+	n = ftype(m)
 	x = zeros(Int, n)
 	for i in 0 : n - 1
-		x[m.img[i] + 1] = i
+		x[m(i) + 1] = i
 	end
 	return Map(x)
 end
@@ -81,3 +88,43 @@ function mult_group(ls :: LatinSquare)
 	end
 	return rowperm, colperm
 end
+
+
+
+# collection of mappings
+# f1 : Zk1 -> Zk1
+# ...
+# ft : Zkt -> Zkt
+struct MFamily{T, S}
+	fs :: Vector{Map{T}}
+	ftype :: S
+end
+
+
+function MFamily(ms :: Vector{Map{T}}) where T
+	ft = Tuple(ftype.(ms))
+	return MFamily(ms, ft)
+end
+
+
+function getindex(mfam :: MFamily, i :: Int)
+	return mfam.fs[i]
+end
+
+
+function (mfam :: MFamily)(x :: Tuple)
+	t = length(x)
+	res = zeros(Int, t)
+	# f1(x1), ..., ft(xt)
+	for i in 1 : t
+		res[i] = mfam[i](x[i])
+	end
+	return Tuple(res)
+end
+
+
+function ftype(mfam :: MFamily)
+	return mfam.ftype
+end
+
+

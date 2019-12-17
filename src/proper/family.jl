@@ -3,8 +3,8 @@ import Base.getindex
 
 # family of zhegalkin functions 
 
-@auto_hash_equals mutable struct Family{T}
-    fs :: Vector{ZhegFun{T}}
+@auto_hash_equals struct Family{T}
+    fs :: Vector{T}
 end
 
 
@@ -13,9 +13,11 @@ function Family(arr :: Vector{Vector{T}}) where T
 end
 
 
+
 function Family(fargs...)
     return Family([fargs...])
 end
+
 
 
 # apply family of functions
