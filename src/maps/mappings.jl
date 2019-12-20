@@ -1,5 +1,7 @@
 import Base.*
 import Base.inv
+import Base.show
+import Base.setindex!
 
 using OffsetArrays
 
@@ -20,6 +22,7 @@ function Map(x :: AbstractArray)
 	return Map(v, length(x))
 end
 
+
 function Map(f :: Family)
 	n = length(f)
 	x = zeros(Int, 2^n)
@@ -37,6 +40,25 @@ end
 
 function ftype(m :: Map)
 	return m.k
+end
+
+
+function setindex!(m :: Map, val, i :: Int)
+	m.img[i] = val
+end
+
+
+function Base.show(io :: IO, m :: Map)
+	ft = ftype(m)
+	print(io, "Map Z_$ft -> Z_$ft")
+end
+
+
+function view(m :: Map)
+	ft = ftype(m)
+	for i in 0 : ft - 1
+		println(i, " -> ", m(i))
+	end
 end
 
 
@@ -127,4 +149,21 @@ function ftype(mfam :: MFamily)
 	return mfam.ftype
 end
 
+
+function Base.show(io :: IO, m :: MFamily)
+	ft = ftype(m)
+	G = Grp(ft)
+	maptype = repr(G)
+	print(io, "Map $maptype -> $maptype")
+end
+
+
+function view(m :: MFamily)
+	ft = ftype(m)
+	G = Grp(ft)
+	xs = elements(G)
+	for x in xs
+		println(x, " -> ", m(x))
+	end
+end
 

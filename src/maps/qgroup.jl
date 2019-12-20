@@ -118,9 +118,11 @@ end
 function full_table(Q :: Quasigroup)
 	n = length(Q.ls)
 	keynames = OrderedDict(Q.rcnames)
+	rev = Dict([value => key for (key, value) in keynames]...)
+	margin_names = [rev[key] for key in sort!(collect(keys(rev)))]
 	sq = Q.ls.sq
 	sqnew = [rev[key] for key in sq]
-	res = NamedArray(sqnew, (keynames, keynames), ("A", "B"))
+	res = NamedArray(sqnew, (margin_names, margin_names), ("A", "B"))
 	return res
 end
 
