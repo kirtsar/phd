@@ -1,25 +1,48 @@
 import Base.*
 import Base.inv
 import Base.show
+import Base.getindex
 import Base.setindex!
 
 using OffsetArrays
+using Base.Iterators
+using IterTools
 
+
+abstract type AbstractMap end
 
 # mapping Zk -> Zk
 # represent as array
 # f(k) = img[k]
-struct Map{T}
+struct Map{T} <: AbstractMap
 	img :: OffsetVector{T}
-	k :: Int
+	ft :: Int
 end
 
+
+# bijective map {1, .. k} -> {1, ... k}
+struct Perm{T} <: AbstractMap
+	img :: Vector{T}
+	ft :: Int
+end
 
 # mapping of the form {0, .. k - 1} -> {0, .., k - 1}
 # NO  CHECKS
 function Map(x :: AbstractArray)
 	v = OffsetVector(x, 0 : length(x) - 1)
 	return Map(v, length(x))
+end
+
+
+function Map(x :: Tuple)
+	xarr = collect(x)
+	return Map(xarr)
+end
+
+
+function Perm(x :: AbstractArray)
+	ft = length(x)
+	return Perm(x, ft)
 end
 
 
@@ -33,17 +56,17 @@ function Map(f :: Family)
 end
 
 
-function (m :: Map)(x)
+function (m :: AbstractMap)(x)
 	return m.img[x]
 end
 
 
-function ftype(m :: Map)
-	return m.k
+function ftype(m :: AbstractMap)
+	return m.ft
 end
 
 
-function setindex!(m :: Map, val, i :: Int)
+function setindex!(m :: AbstractMap, val, i :: Int)
 	m.img[i] = val
 end
 
@@ -54,39 +77,51 @@ function Base.show(io :: IO, m :: Map)
 end
 
 
-function view(m :: Map)
+function Base.show(io :: IO, m :: Perm)
 	ft = ftype(m)
-	for i in 0 : ft - 1
+	print(io, "Permutation on {1, ..., $ft}")
+end
+
+
+function view(m :: AbstractMap)
+	for i in eachindex(m.img)
 		println(i, " -> ", m(i))
 	end
 end
 
+#=
+function view(m :: Perm)
+	ft = ftype(m)
+	for i in 1 : ft
+		println(i, " -> ", m(i))
+	end
+end
+=#
 
-function *(m1 :: Map{T}, m2 :: Map{T}) where T
+function *(m1 :: Perm{T}, m2 :: Perm{T}) where T
 	n = ftype(m1)
 	x = zeros(T, n)
-	for i in 0 : n-1
+	for i in 1 : n
 		# i -> m2(i) -> m1(m2(i))
-		x[i+1] = m1.img[m2.img[i]]
+		x[i] = m1.img[m2.img[i]]
 	end
-	return Map(x)
+	return Perm(x)
 end
 
 
-function inv(m :: Map)
+function inv(m :: Perm)
 	n = ftype(m)
 	x = zeros(Int, n)
-	for i in 0 : n - 1
-		x[m(i) + 1] = i
+	for i in 1 : n
+		x[m(i)] = i
 	end
-	return Map(x)
+	return Perm(x)
 end
 
 
-function fixpt(m :: Map{T}) where T
-	n = len(m)
+function fixpt(m :: Perm{T}) where T
 	fix = T[]
-	for i in 0 : n - 1
+	for i in eachindex(m.img)
 		if m(i) == i
 			push!(fix, i)
 		end
@@ -95,18 +130,18 @@ function fixpt(m :: Map{T}) where T
 end
 
 
-function comm(m1 :: Map, m2 :: Map)
+function comm(m1 :: Perm, m2 :: Perm)
 	return m1 * m2 * inv(m1) * inv(m2)
 end
 
 
 function mult_group(ls :: LatinSquare)
-	rowperm = Dict{Int, Map{Int}}()
-	colperm = Dict{Int, Map{Int}}()
+	rowperm = Dict{Int, Perm{Int}}()
+	colperm = Dict{Int, Perm{Int}}()
 	n = length(ls)
 	for i in 1 : n
-		rowperm[i - 1] = Map(ls.sq[i, :])
-		colperm[i - 1] = Map(ls.sq[:, i])
+		rowperm[i] = Perm(ls.sq[i, :])
+		colperm[i] = Perm(ls.sq[:, i])
 	end
 	return rowperm, colperm
 end
@@ -166,4 +201,85 @@ function view(m :: MFamily)
 		println(x, " -> ", m(x))
 	end
 end
+
+
+struct MapCollector{T}
+	ms :: Vector{Map{T}}
+end
+
+
+function MapCollector(n :: Int)
+	inds = CartesianIndices(Tuple(n * ones(Int, n))) .- CartesianIndex(Tuple(ones(Int, n)))
+	vecs = vec(Tuple.(inds))
+	ms = Map.(vecs)
+	return MapCollector(ms)
+end
+
+
+function Base.show(io :: IO, mcol :: MapCollector)
+	print(io, "Collection of Maps: $(repr(mcol.ms[1]))")
+end
+
+
+struct MFamilyCollector{T}
+	coll :: T
+end
+
+
+function MFamilyCollector(ft :: Tuple)
+	n = length(ft)
+	coll = Any[undef for i in 1 : n]
+	for i in 1 : n 
+		coll[i] = MapCollector(ft[i]).ms
+	end
+	mfs = Iterators.product(coll...)
+	return MFamilyCollector(mfs)
+end
+
+
+function Base.getindex(mcol :: MFamilyCollector, n)
+	return MFamily(collect(nth(mcol.coll, n)))
+end
+
+
+function Base.length(mcol :: MFamilyCollector)
+	return length(mcol.coll)
+end
+
+
+
+using ProgressBars
+# ps = vector of proper families
+function generate_all_quasigroups(ps)
+	res = []
+	ft = ftype(ps[1])
+	mcols1 = MFamilyCollector(ft)
+	mcols2 = deepcopy(mcols1)
+	n = length(ps)
+	for i in tqdm(1 : n)
+		for j in i : n
+			F = ps[i]
+			G = ps[j]
+			for mcol1 in mcols1.coll
+				for mcol2 in mcols2.coll
+					phi = MFamily(collect(mcol1))
+					psi = MFamily(collect(mcol2))
+					Q = Quasigroup(F, G, phi, psi)
+					push!(res, Q)
+				end
+			end
+		end
+	end
+	return res
+end
+
+
+
+#=
+
+=#
+
+
+
+
 
